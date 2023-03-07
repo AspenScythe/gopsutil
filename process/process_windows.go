@@ -18,9 +18,9 @@ import (
 	"unicode/utf16"
 	"unsafe"
 
-	"github.com/shirou/gopsutil/v3/cpu"
-	"github.com/shirou/gopsutil/v3/internal/common"
-	"github.com/shirou/gopsutil/v3/net"
+	"github.com/AspenScythe/gopsutil/v3/cpu"
+	"github.com/AspenScythe/gopsutil/v3/internal/common"
+	"github.com/AspenScythe/gopsutil/v3/net"
 	"golang.org/x/sys/windows"
 )
 
@@ -943,7 +943,7 @@ func getProcessCPUTimes(pid int32) (SYSTEM_TIMES, error) {
 func getUserProcessParams32(handle windows.Handle) (rtlUserProcessParameters32, error) {
 	pebAddress, err := queryPebAddress(syscall.Handle(handle), true)
 	if err != nil {
-		return rtlUserProcessParameters32{}, fmt.Errorf("cannot locate process PEB: %w", err)
+		return rtlUserProcessParameters32{}, fmt.Errorf("cannot locate process PEB in 32-bit process: %w", err)
 	}
 
 	buf := readProcessMemory(syscall.Handle(handle), true, pebAddress, uint(unsafe.Sizeof(processEnvironmentBlock32{})))
@@ -962,7 +962,7 @@ func getUserProcessParams32(handle windows.Handle) (rtlUserProcessParameters32, 
 func getUserProcessParams64(handle windows.Handle) (rtlUserProcessParameters64, error) {
 	pebAddress, err := queryPebAddress(syscall.Handle(handle), false)
 	if err != nil {
-		return rtlUserProcessParameters64{}, fmt.Errorf("cannot locate process PEB: %w", err)
+		return rtlUserProcessParameters64{}, fmt.Errorf("cannot locate process PEB in 64-bit process: %w", err)
 	}
 
 	buf := readProcessMemory(syscall.Handle(handle), false, pebAddress, uint(unsafe.Sizeof(processEnvironmentBlock64{})))

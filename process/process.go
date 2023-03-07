@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shirou/gopsutil/v3/cpu"
-	"github.com/shirou/gopsutil/v3/internal/common"
-	"github.com/shirou/gopsutil/v3/mem"
-	"github.com/shirou/gopsutil/v3/net"
+	"github.com/AspenScythe/gopsutil/v3/cpu"
+	"github.com/AspenScythe/gopsutil/v3/internal/common"
+	"github.com/AspenScythe/gopsutil/v3/mem"
+	"github.com/AspenScythe/gopsutil/v3/net"
 )
 
 var (
