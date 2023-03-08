@@ -89,7 +89,7 @@ type ioCounters struct {
 
 type processBasicInformation32 struct {
 	Reserved1       uint32
-	PebBaseAddress  uintptr
+	PebBaseAddress  uint32 // Not using uintptr here because expected length on arm64->x86
 	Reserved2       uint32
 	Reserved3       uint32
 	UniqueProcessId uint32
@@ -943,18 +943,18 @@ func getProcessCPUTimes(pid int32) (SYSTEM_TIMES, error) {
 func getUserProcessParams32(handle windows.Handle) (rtlUserProcessParameters32, error) {
 	pebAddress, err := queryPebAddress(syscall.Handle(handle), true)
 	if err != nil {
-		return rtlUserProcessParameters32{}, fmt.Errorf("cannot locate process PEB: %w", err)
+		return rtlUserProcessParameters32{}, fmt.Errorf("cannot locate process PEB for 32-bit proc: %w", err)
 	}
 
 	buf := readProcessMemory(syscall.Handle(handle), true, pebAddress, uint(unsafe.Sizeof(processEnvironmentBlock32{})))
 	if len(buf) != int(unsafe.Sizeof(processEnvironmentBlock32{})) {
-		return rtlUserProcessParameters32{}, fmt.Errorf("cannot read process PEB")
+		return rtlUserProcessParameters32{}, fmt.Errorf("cannot read process PEB for 32-bit proc")
 	}
 	peb := (*processEnvironmentBlock32)(unsafe.Pointer(&buf[0]))
 	userProcessAddress := peb.ProcessParameters
 	buf = readProcessMemory(syscall.Handle(handle), true, userProcessAddress, uint(unsafe.Sizeof(rtlUserProcessParameters32{})))
 	if len(buf) != int(unsafe.Sizeof(rtlUserProcessParameters32{})) {
-		return rtlUserProcessParameters32{}, fmt.Errorf("cannot read user process parameters")
+		return rtlUserProcessParameters32{}, fmt.Errorf("cannot read user process parameters for 32-bit proc")
 	}
 	return *(*rtlUserProcessParameters32)(unsafe.Pointer(&buf[0])), nil
 }
@@ -962,18 +962,18 @@ func getUserProcessParams32(handle windows.Handle) (rtlUserProcessParameters32, 
 func getUserProcessParams64(handle windows.Handle) (rtlUserProcessParameters64, error) {
 	pebAddress, err := queryPebAddress(syscall.Handle(handle), false)
 	if err != nil {
-		return rtlUserProcessParameters64{}, fmt.Errorf("cannot locate process PEB: %w", err)
+		return rtlUserProcessParameters64{}, fmt.Errorf("cannot locate process PEB for 64-bit proc: %w", err)
 	}
 
 	buf := readProcessMemory(syscall.Handle(handle), false, pebAddress, uint(unsafe.Sizeof(processEnvironmentBlock64{})))
 	if len(buf) != int(unsafe.Sizeof(processEnvironmentBlock64{})) {
-		return rtlUserProcessParameters64{}, fmt.Errorf("cannot read process PEB")
+		return rtlUserProcessParameters64{}, fmt.Errorf("cannot read process PEB for 64-bit proc")
 	}
 	peb := (*processEnvironmentBlock64)(unsafe.Pointer(&buf[0]))
 	userProcessAddress := peb.ProcessParameters
 	buf = readProcessMemory(syscall.Handle(handle), false, userProcessAddress, uint(unsafe.Sizeof(rtlUserProcessParameters64{})))
 	if len(buf) != int(unsafe.Sizeof(rtlUserProcessParameters64{})) {
-		return rtlUserProcessParameters64{}, fmt.Errorf("cannot read user process parameters")
+		return rtlUserProcessParameters64{}, fmt.Errorf("cannot read user process parameters for 64-bit proc")
 	}
 	return *(*rtlUserProcessParameters64)(unsafe.Pointer(&buf[0])), nil
 }
@@ -1127,7 +1127,7 @@ func getProcessCommandLine(pid int32) (string, error) {
 		if userProcParams.CommandLineLength > 0 {
 			cmdLine := readProcessMemory(syscall.Handle(h), procIs32Bits, userProcParams.CommandLineAddress, uint(userProcParams.CommandLineLength))
 			if len(cmdLine) != int(userProcParams.CommandLineLength) {
-				return "", errors.New("cannot read cmdline")
+				return "", errors.New("cannot read cmdline for 32-bit proc")
 			}
 
 			return convertUTF16ToString(cmdLine), nil
@@ -1140,7 +1140,7 @@ func getProcessCommandLine(pid int32) (string, error) {
 		if userProcParams.CommandLineLength > 0 {
 			cmdLine := readProcessMemory(syscall.Handle(h), procIs32Bits, userProcParams.CommandLineAddress, uint(userProcParams.CommandLineLength))
 			if len(cmdLine) != int(userProcParams.CommandLineLength) {
-				return "", errors.New("cannot read cmdline")
+				return "", errors.New("cannot read cmdline for 64-bit proc")
 			}
 
 			return convertUTF16ToString(cmdLine), nil
