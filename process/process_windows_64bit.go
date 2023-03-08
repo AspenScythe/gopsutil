@@ -27,7 +27,7 @@ type PROCESS_MEMORY_COUNTERS struct {
 func queryPebAddress(procHandle syscall.Handle, is32BitProcess bool) (uintptr, error) {
 	if is32BitProcess {
 		// we are on a 64-bit process reading an external 32-bit process
-		var info processBasicInformation32
+		var info processBasicInformation64
 
 		ret, _, _ := common.ProcNtQueryInformationProcess.Call(
 			uintptr(procHandle),
