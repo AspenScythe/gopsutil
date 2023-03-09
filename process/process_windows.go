@@ -940,8 +940,8 @@ func getProcessCPUTimes(pid int32) (SYSTEM_TIMES, error) {
 	return times, err
 }
 
-func getUserProcessParams32(handle windows.Handle, procIs32Bits bool) (rtlUserProcessParameters32, error) {
-	pebAddress, err, queryFrom64Bit := queryPebAddress(syscall.Handle(handle), procIs32Bits)
+func getUserProcessParams32(handle windows.Handle) (rtlUserProcessParameters32, error) {
+	pebAddress, err, queryFrom64Bit := queryPebAddress(syscall.Handle(handle), true)
 	if err != nil {
 		return rtlUserProcessParameters32{}, fmt.Errorf("cannot locate process PEB for 64-bit-initiator: %t, 32-bit-proc: %t : %w", queryFrom64Bit, procIs32Bits, err)
 	}
@@ -959,8 +959,8 @@ func getUserProcessParams32(handle windows.Handle, procIs32Bits bool) (rtlUserPr
 	return *(*rtlUserProcessParameters32)(unsafe.Pointer(&buf[0])), nil
 }
 
-func getUserProcessParams64(handle windows.Handle, procIs32Bits bool) (rtlUserProcessParameters64, error) {
-	pebAddress, err, queryFrom64Bit := queryPebAddress(syscall.Handle(handle), procIs32Bits)
+func getUserProcessParams64(handle windows.Handle) (rtlUserProcessParameters64, error) {
+	pebAddress, err, queryFrom64Bit := queryPebAddress(syscall.Handle(handle), false)
 	if err != nil {
 		return rtlUserProcessParameters64{}, fmt.Errorf("cannot locate process PEB for 64-bit-initiator: %t, 32-bit-proc: %t : %w", queryFrom64Bit, procIs32Bits, err)
 	}
