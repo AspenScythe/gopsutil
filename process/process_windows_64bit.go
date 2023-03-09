@@ -24,7 +24,7 @@ type PROCESS_MEMORY_COUNTERS struct {
 	PeakPagefileUsage          uint64
 }
 
-func queryPebAddress(procHandle syscall.Handle, _ bool) (uintptr, error, from64Bit) {
+func queryPebAddress(procHandle syscall.Handle, _ bool) (uintptr, error, bool) {
 	var queryFrom64Bit bool = true
 
 	// we are in a 64-bit process
