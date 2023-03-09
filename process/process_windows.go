@@ -943,18 +943,18 @@ func getProcessCPUTimes(pid int32) (SYSTEM_TIMES, error) {
 func getUserProcessParams32(handle windows.Handle) (rtlUserProcessParameters32, error) {
 	pebAddress, err, queryFrom64Bit := queryPebAddress(syscall.Handle(handle), true)
 	if err != nil {
-		return rtlUserProcessParameters32{}, fmt.Errorf("cannot locate process PEB for 64-bit-initiator: %t, 32-bit-proc: %t : %w", queryFrom64Bit, procIs32Bits, err)
+		return rtlUserProcessParameters32{}, fmt.Errorf("cannot locate process PEB for 64-bit-initiator: %t, 32-bit-proc: %t : %w", queryFrom64Bit, true, err)
 	}
 
 	buf := readProcessMemory(syscall.Handle(handle), true, pebAddress, uint(unsafe.Sizeof(processEnvironmentBlock32{})))
 	if len(buf) != int(unsafe.Sizeof(processEnvironmentBlock32{})) {
-		return rtlUserProcessParameters32{}, fmt.Errorf("cannot read process PEB for 64-bit-initiator: %t, 32-bit-proc: %t", queryFrom64Bit, procIs32Bits)
+		return rtlUserProcessParameters32{}, fmt.Errorf("cannot read process PEB for 64-bit-initiator: %t, 32-bit-proc: %t", queryFrom64Bit, true)
 	}
 	peb := (*processEnvironmentBlock32)(unsafe.Pointer(&buf[0]))
 	userProcessAddress := peb.ProcessParameters
 	buf = readProcessMemory(syscall.Handle(handle), true, userProcessAddress, uint(unsafe.Sizeof(rtlUserProcessParameters32{})))
 	if len(buf) != int(unsafe.Sizeof(rtlUserProcessParameters32{})) {
-		return rtlUserProcessParameters32{}, fmt.Errorf("cannot read user process parameters for 64-bit-initiator: %t, 32-bit-proc: %t", queryFrom64Bit, procIs32Bits)
+		return rtlUserProcessParameters32{}, fmt.Errorf("cannot read user process parameters for 64-bit-initiator: %t, 32-bit-proc: %t", queryFrom64Bit, true)
 	}
 	return *(*rtlUserProcessParameters32)(unsafe.Pointer(&buf[0])), nil
 }
@@ -962,18 +962,18 @@ func getUserProcessParams32(handle windows.Handle) (rtlUserProcessParameters32, 
 func getUserProcessParams64(handle windows.Handle) (rtlUserProcessParameters64, error) {
 	pebAddress, err, queryFrom64Bit := queryPebAddress(syscall.Handle(handle), false)
 	if err != nil {
-		return rtlUserProcessParameters64{}, fmt.Errorf("cannot locate process PEB for 64-bit-initiator: %t, 32-bit-proc: %t : %w", queryFrom64Bit, procIs32Bits, err)
+		return rtlUserProcessParameters64{}, fmt.Errorf("cannot locate process PEB for 64-bit-initiator: %t, 32-bit-proc: %t : %w", queryFrom64Bit, false, err)
 	}
 
 	buf := readProcessMemory(syscall.Handle(handle), false, pebAddress, uint(unsafe.Sizeof(processEnvironmentBlock64{})))
 	if len(buf) != int(unsafe.Sizeof(processEnvironmentBlock64{})) {
-		return rtlUserProcessParameters64{}, fmt.Errorf("cannot read process PEB for 64-bit-initiator: %t, 32-bit-proc: %t", queryFrom64Bit, procIs32Bits)
+		return rtlUserProcessParameters64{}, fmt.Errorf("cannot read process PEB for 64-bit-initiator: %t, 32-bit-proc: %t", queryFrom64Bit, false)
 	}
 	peb := (*processEnvironmentBlock64)(unsafe.Pointer(&buf[0]))
 	userProcessAddress := peb.ProcessParameters
 	buf = readProcessMemory(syscall.Handle(handle), false, userProcessAddress, uint(unsafe.Sizeof(rtlUserProcessParameters64{})))
 	if len(buf) != int(unsafe.Sizeof(rtlUserProcessParameters64{})) {
-		return rtlUserProcessParameters64{}, fmt.Errorf("cannot read user process parameters for 64-bit-initiator: %t, 32-bit-proc: %t", queryFrom64Bit, procIs32Bits)
+		return rtlUserProcessParameters64{}, fmt.Errorf("cannot read user process parameters for 64-bit-initiator: %t, 32-bit-proc: %t", queryFrom64Bit, false)
 	}
 	return *(*rtlUserProcessParameters64)(unsafe.Pointer(&buf[0])), nil
 }
