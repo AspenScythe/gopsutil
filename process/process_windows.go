@@ -403,32 +403,17 @@ func (p *Process) CwdWithContext(_ context.Context) (string, error) {
 
 	procIs32Bits := is32BitProcess(h)
 
-	if procIs32Bits {
-		userProcParams, err := getUserProcessParams32(h)
-		if err != nil {
-			return "", err
+	userProcParams, err := getUserProcessParams(h, procIs32Bits)
+	if err != nil {
+		return "", err
+	}
+	if userProcParams.CurrentDirectoryPathNameLength > 0 {
+		cwd := readProcessMemory(syscall.Handle(h), procIs32Bits, userProcParams.CurrentDirectoryPathAddress, uint(userProcParams.CurrentDirectoryPathNameLength))
+		if len(cwd) != int(userProcParams.CurrentDirectoryPathNameLength) {
+			return "", errors.New("cannot read current working directory")
 		}
-		if userProcParams.CurrentDirectoryPathNameLength > 0 {
-			cwd := readProcessMemory(syscall.Handle(h), procIs32Bits, userProcParams.CurrentDirectoryPathAddress, uint(userProcParams.CurrentDirectoryPathNameLength))
-			if len(cwd) != int(userProcParams.CurrentDirectoryPathNameLength) {
-				return "", errors.New("cannot read current working directory")
-			}
 
-			return convertUTF16ToString(cwd), nil
-		}
-	} else {
-		userProcParams, err := getUserProcessParams64(h)
-		if err != nil {
-			return "", err
-		}
-		if userProcParams.CurrentDirectoryPathNameLength > 0 {
-			cwd := readProcessMemory(syscall.Handle(h), procIs32Bits, userProcParams.CurrentDirectoryPathAddress, uint(userProcParams.CurrentDirectoryPathNameLength))
-			if len(cwd) != int(userProcParams.CurrentDirectoryPathNameLength) {
-				return "", errors.New("cannot read current working directory")
-			}
-
-			return convertUTF16ToString(cwd), nil
-		}
+		return convertUTF16ToString(cwd), nil
 	}
 
 	// if we reach here, we have no cwd
@@ -940,42 +925,40 @@ func getProcessCPUTimes(pid int32) (SYSTEM_TIMES, error) {
 	return times, err
 }
 
-func getUserProcessParams32(handle windows.Handle) (rtlUserProcessParameters32, error) {
-	pebAddress, err := queryPebAddress(syscall.Handle(handle), true)
+func getUserProcessParams(handle windows.Handle, procIs32Bits bool) (rtlUserProcessParameters, error) {
+	pebAddress, err, queryFrom64Bit := queryPebAddress(syscall.Handle(handle), procIs32Bits)
 	if err != nil {
-		return rtlUserProcessParameters32{}, fmt.Errorf("cannot locate process PEB for 32-bit proc: %w", err)
+		if queryFrom64Bit {
+			return rtlUserProcessParameters64{}, fmt.Errorf("cannot locate process PEB for 64-bit initiator, 32-bit-proc is: %t: %w", procIs32Bits, err)
+		} else {
+			return rtlUserProcessParameters32{}, fmt.Errorf("cannot locate process PEB for 32-bit initiator, 32-bit-proc is: %t: %w", procIs32Bits, err)
+		}
 	}
-
-	buf := readProcessMemory(syscall.Handle(handle), true, pebAddress, uint(unsafe.Sizeof(processEnvironmentBlock32{})))
-	if len(buf) != int(unsafe.Sizeof(processEnvironmentBlock32{})) {
-		return rtlUserProcessParameters32{}, fmt.Errorf("cannot read process PEB for 32-bit proc")
+	if queryFrom64Bit {
+		buf := readProcessMemory(syscall.Handle(handle), false, pebAddress, uint(unsafe.Sizeof(processEnvironmentBlock64{})))
+		if len(buf) != int(unsafe.Sizeof(processEnvironmentBlock64{})) {
+			return rtlUserProcessParameters64{}, fmt.Errorf("cannot read process PEB for 64-bit initiator, 32-bit-proc is: %t", procIs32Bits)
+		}
+		peb := (*processEnvironmentBlock64)(unsafe.Pointer(&buf[0]))
+		userProcessAddress := peb.ProcessParameters
+		buf = readProcessMemory(syscall.Handle(handle), false, userProcessAddress, uint(unsafe.Sizeof(rtlUserProcessParameters64{})))
+		if len(buf) != int(unsafe.Sizeof(rtlUserProcessParameters64{})) {
+			return rtlUserProcessParameters64{}, fmt.Errorf("cannot read user process parameters for 64-bit initiator, 32-bit-proc is: %t", procIs32Bits)
+		}
+		return *(*rtlUserProcessParameters64)(unsafe.Pointer(&buf[0])), nil
+	} else {
+		buf := readProcessMemory(syscall.Handle(handle), true, pebAddress, uint(unsafe.Sizeof(processEnvironmentBlock32{})))
+		if len(buf) != int(unsafe.Sizeof(processEnvironmentBlock32{})) {
+			return rtlUserProcessParameters32{}, fmt.Errorf("cannot read process PEB for 32-bit initiator, 32-bit-proc is: %t", procIs32Bits)
+		}
+		peb := (*processEnvironmentBlock32)(unsafe.Pointer(&buf[0]))
+		userProcessAddress := peb.ProcessParameters
+		buf = readProcessMemory(syscall.Handle(handle), true, userProcessAddress, uint(unsafe.Sizeof(rtlUserProcessParameters32{})))
+		if len(buf) != int(unsafe.Sizeof(rtlUserProcessParameters32{})) {
+			return rtlUserProcessParameters32{}, fmt.Errorf("cannot read user process parameters for 32-bit initiator, 32-bit-proc is: %t", procIs32Bits)
+		}
+		return *(*rtlUserProcessParameters32)(unsafe.Pointer(&buf[0])), nil
 	}
-	peb := (*processEnvironmentBlock32)(unsafe.Pointer(&buf[0]))
-	userProcessAddress := peb.ProcessParameters
-	buf = readProcessMemory(syscall.Handle(handle), true, userProcessAddress, uint(unsafe.Sizeof(rtlUserProcessParameters32{})))
-	if len(buf) != int(unsafe.Sizeof(rtlUserProcessParameters32{})) {
-		return rtlUserProcessParameters32{}, fmt.Errorf("cannot read user process parameters for 32-bit proc")
-	}
-	return *(*rtlUserProcessParameters32)(unsafe.Pointer(&buf[0])), nil
-}
-
-func getUserProcessParams64(handle windows.Handle) (rtlUserProcessParameters64, error) {
-	pebAddress, err := queryPebAddress(syscall.Handle(handle), false)
-	if err != nil {
-		return rtlUserProcessParameters64{}, fmt.Errorf("cannot locate process PEB for 64-bit proc: %w", err)
-	}
-
-	buf := readProcessMemory(syscall.Handle(handle), false, pebAddress, uint(unsafe.Sizeof(processEnvironmentBlock64{})))
-	if len(buf) != int(unsafe.Sizeof(processEnvironmentBlock64{})) {
-		return rtlUserProcessParameters64{}, fmt.Errorf("cannot read process PEB for 64-bit proc")
-	}
-	peb := (*processEnvironmentBlock64)(unsafe.Pointer(&buf[0]))
-	userProcessAddress := peb.ProcessParameters
-	buf = readProcessMemory(syscall.Handle(handle), false, userProcessAddress, uint(unsafe.Sizeof(rtlUserProcessParameters64{})))
-	if len(buf) != int(unsafe.Sizeof(rtlUserProcessParameters64{})) {
-		return rtlUserProcessParameters64{}, fmt.Errorf("cannot read user process parameters for 64-bit proc")
-	}
-	return *(*rtlUserProcessParameters64)(unsafe.Pointer(&buf[0])), nil
 }
 
 func is32BitProcess(h windows.Handle) bool {
@@ -1037,19 +1020,12 @@ func getProcessEnvironmentVariables(pid int32, ctx context.Context) ([]string, e
 
 	var processParameterBlockAddress uintptr
 
-	if procIs32Bits {
-		peb, err := getUserProcessParams32(h)
-		if err != nil {
-			return nil, err
-		}
-		processParameterBlockAddress = peb.EnvironmentAddress
-	} else {
-		peb, err := getUserProcessParams64(h)
-		if err != nil {
-			return nil, err
-		}
-		processParameterBlockAddress = peb.EnvironmentAddress
+	peb, err := getUserProcessParams(h, procIs32Bits)
+	if err != nil {
+		return nil, err
 	}
+	processParameterBlockAddress = peb.EnvironmentAddress
+
 	envvarScanner := bufio.NewScanner(&processReader{
 		processHandle:  h,
 		is32BitProcess: procIs32Bits,
@@ -1119,32 +1095,17 @@ func getProcessCommandLine(pid int32) (string, error) {
 
 	procIs32Bits := is32BitProcess(h)
 
-	if procIs32Bits {
-		userProcParams, err := getUserProcessParams32(h)
-		if err != nil {
-			return "", err
+	userProcParams, err := getUserProcessParams(h, procIs32Bits)
+	if err != nil {
+		return "", err
+	}
+	if userProcParams.CommandLineLength > 0 {
+		cmdLine := readProcessMemory(syscall.Handle(h), procIs32Bits, userProcParams.CommandLineAddress, uint(userProcParams.CommandLineLength))
+		if len(cmdLine) != int(userProcParams.CommandLineLength) {
+			return "", fmt.Errorf("cannot read cmdline for 32-bit-proc: %t, len: %d and %d", procIs32Bits, len(cmdline), int(userProcParams.CommandLineLength))
 		}
-		if userProcParams.CommandLineLength > 0 {
-			cmdLine := readProcessMemory(syscall.Handle(h), procIs32Bits, userProcParams.CommandLineAddress, uint(userProcParams.CommandLineLength))
-			if len(cmdLine) != int(userProcParams.CommandLineLength) {
-				return "", errors.New("cannot read cmdline for 32-bit proc")
-			}
 
-			return convertUTF16ToString(cmdLine), nil
-		}
-	} else {
-		userProcParams, err := getUserProcessParams64(h)
-		if err != nil {
-			return "", err
-		}
-		if userProcParams.CommandLineLength > 0 {
-			cmdLine := readProcessMemory(syscall.Handle(h), procIs32Bits, userProcParams.CommandLineAddress, uint(userProcParams.CommandLineLength))
-			if len(cmdLine) != int(userProcParams.CommandLineLength) {
-				return "", errors.New("cannot read cmdline for 64-bit proc")
-			}
-
-			return convertUTF16ToString(cmdLine), nil
-		}
+		return convertUTF16ToString(cmdLine), nil
 	}
 
 	// if we reach here, we have no command line

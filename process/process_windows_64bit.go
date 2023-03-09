@@ -24,39 +24,23 @@ type PROCESS_MEMORY_COUNTERS struct {
 	PeakPagefileUsage          uint64
 }
 
-func queryPebAddress(procHandle syscall.Handle, is32BitProcess bool) (uintptr, error) {
-	if is32BitProcess {
-		// we are on a 64-bit process reading an external 32-bit process
-		var info processBasicInformation64
+func queryPebAddress(procHandle syscall.Handle, _ bool) (uintptr, error, from64Bit) {
+	var queryFrom64Bit bool = true
 
-		ret, _, _ := common.ProcNtQueryInformationProcess.Call(
-			uintptr(procHandle),
-			uintptr(common.ProcessBasicInformation),
-			uintptr(unsafe.Pointer(&info)),
-			uintptr(unsafe.Sizeof(info)),
-			uintptr(0),
-		)
-		if status := windows.NTStatus(ret); status == windows.STATUS_SUCCESS {
-			return info.PebBaseAddress, nil
-		} else {
-			return 0, windows.NTStatus(ret)
-		}
+	// we are in a 64-bit process
+	var info processBasicInformation64
+
+	ret, _, _ := common.ProcNtQueryInformationProcess.Call(
+		uintptr(procHandle),
+		uintptr(common.ProcessBasicInformation),
+		uintptr(unsafe.Pointer(&info)),
+		uintptr(unsafe.Sizeof(info)),
+		uintptr(0),
+	)
+	if status := windows.NTStatus(ret); status == windows.STATUS_SUCCESS {
+		return info.PebBaseAddress, nil, queryFrom64Bit
 	} else {
-		// we are on a 64-bit process reading an external 64-bit process
-		var info processBasicInformation64
-
-		ret, _, _ := common.ProcNtQueryInformationProcess.Call(
-			uintptr(procHandle),
-			uintptr(common.ProcessBasicInformation),
-			uintptr(unsafe.Pointer(&info)),
-			uintptr(unsafe.Sizeof(info)),
-			uintptr(0),
-		)
-		if status := windows.NTStatus(ret); status == windows.STATUS_SUCCESS {
-			return info.PebBaseAddress, nil
-		} else {
-			return 0, windows.NTStatus(ret)
-		}
+		return 0, windows.NTStatus(ret), queryFrom64Bit
 	}
 }
 
