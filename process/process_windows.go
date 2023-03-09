@@ -1128,7 +1128,7 @@ func getProcessCommandLine(pid int32) (string, error) {
 		if userProcParams.CommandLineLength > 0 {
 			cmdLine := readProcessMemory(syscall.Handle(h), procIs32Bits, userProcParams.CommandLineAddress, uint(userProcParams.CommandLineLength))
 			if len(cmdLine) != int(userProcParams.CommandLineLength) {
-				return "", errors.New("cannot read cmdline")
+				return "", fmt.Errorf("cannot read cmdline for 32-bit-proc: %t, len: %d and %d", procIs32Bits, len(cmdline), int(userProcParams.CommandLineLength))
 			}
 
 			return convertUTF16ToString(cmdLine), nil
@@ -1141,7 +1141,7 @@ func getProcessCommandLine(pid int32) (string, error) {
 		if userProcParams.CommandLineLength > 0 {
 			cmdLine := readProcessMemory(syscall.Handle(h), procIs32Bits, userProcParams.CommandLineAddress, uint(userProcParams.CommandLineLength))
 			if len(cmdLine) != int(userProcParams.CommandLineLength) {
-				return "", errors.New("cannot read cmdline")
+				return "", fmt.Errorf("cannot read cmdline for 32-bit-proc: %t, len: %d and %d", procIs32Bits, len(cmdline), int(userProcParams.CommandLineLength))
 			}
 
 			return convertUTF16ToString(cmdLine), nil
