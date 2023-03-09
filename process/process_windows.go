@@ -89,7 +89,7 @@ type ioCounters struct {
 
 type processBasicInformation32 struct {
 	Reserved1       uint32
-	PebBaseAddress  uint32 // Not using uintptr here because expected length on arm64->x86
+	PebBaseAddress  uintptr
 	Reserved2       uint32
 	Reserved3       uint32
 	UniqueProcessId uint32
