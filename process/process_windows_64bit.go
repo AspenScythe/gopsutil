@@ -31,7 +31,7 @@ func queryPebAddress(procHandle syscall.Handle, is32BitProcess bool) (uintptr, e
 
 		ret, _, _ := common.ProcNtQueryInformationProcess.Call(
 			uintptr(procHandle),
-			uintptr(common.ProcessWow64Information),
+			uintptr(common.ProcessBasicInformation),
 			uintptr(unsafe.Pointer(&info)),
 			uintptr(unsafe.Sizeof(info)),
 			uintptr(0),
